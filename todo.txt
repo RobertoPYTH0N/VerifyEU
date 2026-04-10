@@ -1,0 +1,29 @@
+ASPECT RATIO NORMALZIATION
+COLOR HISTOGRAM
+
+
+authentication 
+confidence tiers
+compare function
+
+
+to store:
+	-id
+	-signature
+	-public key
+		manifest:
+		-sha256
+		-phash, dhash
+		-datetime registered
+		-author
+
+p/dhash matching issue fixes:
+fuzzy (On^2)
+scenedetect
+temporal pooling
+audio fingerprinting
+check metadata
+ORB
+
+unimportant:
+s3 bucket for storing images
