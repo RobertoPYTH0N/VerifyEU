@@ -1,9 +1,6 @@
-ASPECT RATIO NORMALZIATION
-COLOR HISTOGRAM
-
 
 authentication 
-confidence tiers
+confidence tiers make them make sense
 compare function
 
 

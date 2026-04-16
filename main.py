@@ -1,151 +1,169 @@
-import hashlib
-from PIL import Image, ImageOps
-import imagehash
-import generate_keys as gk
+
 import os
-import psycopg as ps
+from dotenv import load_dotenv
+import psycopg
 import json
 from datetime import datetime, timezone
-from uuid import uuid4
-import cv2
-import io
+from nacl.signing import SigningKey
 
-import hashes_by_type as hbt
+import hash_compute as hc
 
-def compute_sha256(path):
-	h = hashlib.sha256()
-	with open(path, "rb") as f:
-		for chunk in iter(lambda: f.read(8192), b""):
-			h.update(chunk)
-	sha256 = h.hexdigest()
-	print("SHA-256 hash of the file:", sha256)
-	return sha256
+# Load environment variables from .env file
+load_dotenv()
 
-def match_test():
-    # Example usage of the functions
-    print("Testing hash computation and matching...")
-    file_path = "/home/flipman/Documents/Personal_Projects/AI_Policy_Hackathon/test_images/antilope21.jpg"
+def create_manifest(creator_id: str, filename: str, file_path: str) -> dict:
+    """
+    Create a manifest for media registration.
+    Computes all hashes using hash_compute.
     
-    # Compute original SHA-256 and pHash/dHash
-    print(f"\nOriginal file: antilope21.jpg")
-    og_sha256 = compute_sha256(file_path)
-    og_ph, og_dh = compute_ph_dh(file_path)
-    print(f"Original pHash: {og_ph}")
-    print(f"Original dHash: {og_dh}\n")
+    Args:
+        creator_id: Organization/team ID
+        filename: Original filename
+        file_path: Path to media file
     
-    # Test images
-    print("Testing other images:")
-    print("-" * 80)
+    Returns:
+        Manifest dict with hashes and metadata
+    """
+    hash_result = hc.compute_hashes_by_type(file_path)
     
-    for img in os.listdir("/home/flipman/Documents/Personal_Projects/AI_Policy_Hackathon/test_images"):
-        if img == "antilope21.jpg":
-            continue
-        
-        test_path = os.path.join("/home/flipman/Documents/Personal_Projects/AI_Policy_Hackathon/test_images", img)
-        
-        try:
-            test_sha256 = compute_sha256(test_path)
-            test_ph, test_dh = compute_ph_dh(test_path)
-            
-            # Calculate Hamming distances
-            ph_distance = hamming_distance(og_ph, test_ph)
-            dh_distance = hamming_distance(og_dh, test_dh)
-            
-            # Determine match confidence
-            exact_match = og_sha256 == test_sha256
-            phash_match = ph_distance <= 8
-            dhash_match = dh_distance <= 8
-            both_match = phash_match and dhash_match
-            
-            print(f"\nFile: {img}")
-            print(f"  SHA-256 exact match: {exact_match}")
-            print(f"  pHash distance: {ph_distance} {'✓ (strong match)' if phash_match else '✗'}")
-            print(f"  dHash distance: {dh_distance} {'✓ (strong match)' if dhash_match else '✗'}")
-            print(f"  Both hashes match: {both_match}")
-            
-        except Exception as e:
-            print(f"\nFile: {img}")
-            print(f"  Error: {e}")
-
-def main():
-    match_test()
-
-def compute_ph_dh(path: str, hash_size: int = 8) -> tuple[str, str]:
-	with Image.open(path) as img:
-		img = ImageOps.exif_transpose(img).convert("RGB")
-		ph = imagehash.phash(img, hash_size=hash_size)
-		dh = imagehash.dhash(img, hash_size=hash_size)
-		print("Perceptual Hash (pHash):", ph)
-		print("Difference Hash (dHash):", dh)
-		return str(ph), str(dh)
-
-def hamming_distance(hash_hex_a: str, hash_hex_b: str) -> int:
-	a = imagehash.hex_to_hash(hash_hex_a)
-	b = imagehash.hex_to_hash(hash_hex_b)
-	return int(a - b)
-
-def create_manifest(creator_id: str, filename: str, sha256: str, file_path: str) -> dict:
-    hash_result = hbt.compute_hashes_by_type(file_path)
+    # Skip video files for now
+    if hash_result["media_type"] == "video":
+        raise ValueError("Video processing not yet implemented")
     
     manifest = {
+        "ahash": hash_result["ahash"],
         "algorithm_hash": "SHA-256",
         "algorithm_signature": "Ed25519",
         "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "creator_id": creator_id,
+        "dhash": hash_result["dhash"],
         "filename": filename,
-        "id": str(uuid4()),
         "media_type": hash_result["media_type"],
-        "sha256": sha256,
         "phash": hash_result["phash"],
-        "dhash": hash_result["dhash"]
+        "sha256": hash_result["sha256"]
     }
 
     return manifest
 
-def extract_keyframes(video_path: str, fps: int = 1) -> list[Image.Image]:
+
+def get_db_connection(db_url: str = None):
     """
-    Extract keyframes from video at specified frames per second.
+    Connect to PostgreSQL database.
     
     Args:
-        video_path: path to video file
-        fps: frames per second to extract (1 = one frame per second)
+        db_url: Connection string (e.g., "postgres://user:pass@localhost/crypto")
+                If None, reads from POSTGRES_URL environment variable
     
     Returns:
-        list of PIL Image objects
+        psycopg connection object
     """
-    cap = cv2.VideoCapture(video_path)
+    if db_url is None:
+        db_url = os.getenv("POSTGRES_URL")
     
-    if not cap.isOpened():
-        raise ValueError(f"Could not open video: {video_path}")
+    if db_url is None:
+        raise ValueError("POSTGRES_URL not set and no db_url provided")
     
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    video_fps = cap.get(cv2.CAP_PROP_FPS)
+    conn = psycopg.connect(db_url)
+    return conn
+
+
+def register_media(
+    file_path: str,
+    creator_id: str,
+    signing_key_hex: str = None,
+    key_id: str = "key-2026-01",
+    db_url: str = None
+) -> dict:
+    """
+    Register a file in the database with Ed25519 signature.
     
-    if video_fps == 0:
-        raise ValueError("Could not determine video FPS")
+    Args:
+        file_path: Path to media file to register
+        creator_id: Organization/team ID (e.g., "campaign-team-1")
+        signing_key_hex: Ed25519 private key as hex string
+                        If None, reads from VERIFIER_PRIVATE_KEY_HEX environment variable
+        key_id: Public key identifier (e.g., "key-2026-01")
+        db_url: PostgreSQL connection string
+               If None, reads from POSTGRES_URL environment variable
     
-    # Calculate frame interval (e.g., if video is 30 fps and we want 1 fps, skip 30 frames)
-    frame_interval = int(video_fps / fps)
+    Returns:
+        dict with registration details
+    """
+    # Get signing key
+    if signing_key_hex is None:
+        signing_key_hex = os.getenv("VERIFIER_PRIVATE_KEY_HEX")
     
-    keyframes = []
-    frame_count = 0
+    if signing_key_hex is None:
+        raise ValueError("VERIFIER_PRIVATE_KEY_HEX not set and no signing_key_hex provided")
     
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
+    signing_key = SigningKey(bytes.fromhex(signing_key_hex))
+    
+    # Get filename
+    filename = os.path.basename(file_path)
+    
+    # Create manifest (includes all hashing)
+    print(f"Creating manifest for {filename}...")
+    manifest = create_manifest(creator_id, filename, file_path)
+    
+    # Extract SHA256 from manifest
+    sha256 = manifest["sha256"]
+    
+    # Canonicalize manifest (sorted keys, compact format)
+    canonical_json = json.dumps(manifest, separators=(",", ":"), sort_keys=True)
+    
+    # Sign manifest
+    print("Signing manifest with Ed25519...")
+    signed = signing_key.sign(canonical_json.encode())
+    signature_hex = signed.signature.hex()
+    
+    # Connect to database
+    print("Connecting to database...")
+    conn = get_db_connection(db_url)
+    
+    try:
+        # Insert into manifests table
+        cursor = conn.cursor()
         
-        # Extract every nth frame
-        if frame_count % frame_interval == 0:
-            # Convert BGR (OpenCV) to RGB (PIL)
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            pil_image = Image.fromarray(rgb_frame)
-            keyframes.append(pil_image)
+        cursor.execute(
+            """
+            INSERT INTO manifests (sha256, manifest_json, signature_hex, key_id)
+            VALUES (%s, %s::jsonb, %s, %s)
+            RETURNING id, created_at
+            """,
+            (sha256, json.dumps(manifest), signature_hex, key_id)
+        )
         
-        frame_count += 1
+        result = cursor.fetchone()
+        asset_id, created_at = result
+        
+        conn.commit()
+        cursor.close()
+        
+        print(f"✓ Successfully registered: {filename} (ID: {asset_id})")
+        
+        return {
+            "asset_id": str(asset_id),
+            "sha256": sha256,
+            "manifest": manifest,
+            "signature": signature_hex,
+            "created_at": str(created_at),
+            "status": "registered"
+        }
     
-    cap.release()
-    return keyframes
+    except Exception as e:
+        conn.rollback()
+        print(f"✗ Registration failed: {e}")
+        raise
+    
+    finally:
+        conn.close()
+
+
+def main():
+    #match_test()
+    register_media(
+        file_path="/home/flipman/Documents/Personal_Projects/AI_Policy_Hackathon/test_images/antilope21.jpg",
+        creator_id="campaign-team-1")
+    
 
 if __name__ == "__main__":	main()
-

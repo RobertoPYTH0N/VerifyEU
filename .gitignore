@@ -1,0 +1,12 @@
+test_images/
+__pycache__/
+.env
+Output/
+.vscode/
+.DS_Store
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
