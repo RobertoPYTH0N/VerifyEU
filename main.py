@@ -412,12 +412,15 @@ def register_media(
 
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 def main():
     #match_test()
     register_media(
         file_path="/home/flipman/Documents/Personal_Projects/AI_Policy_Hackathon/test_images/antilope21.jpg",
         creator_id="campaign-team-1")
 =======
+=======
+>>>>>>> Stashed changes
 def find_closest_match(query_image_path: str = None, top_k: int = 10, db_url: str = None) -> list[dict]:
     """
     Find the closest matching image(s) in database using pgvector similarity search.
@@ -808,6 +811,9 @@ def regenerate_null_vectors(db_url: str = None) -> dict:
     """
     Regenerate vectors for records in database that have NULL vector columns.
     This is needed when existing records were stored before vector generation was implemented.
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     
     Args:
@@ -890,6 +896,127 @@ def regenerate_null_vectors(db_url: str = None) -> dict:
     except Exception as e:
         print(f"✗ Error regenerating vectors: {e}")
         return {"status": "error", "message": str(e)}
+<<<<<<< Updated upstream
+=======
+
+
+def register_all_from_directory(directory: str) -> dict:
+    """
+    Register all images from a directory.
+    Skips files that are already in the database (checks by SHA-256).
+    Uses current authenticated user as creator.
+    
+    Args:
+        directory: Path to directory containing images to register
+    
+    Returns:
+        dict with registration statistics
+    """
+    if not current_user:
+        print("✗ You must be logged in to register media")
+        return {"status": "error", "message": "Not authenticated"}
+    
+    if not os.path.isdir(directory):
+        print(f"✗ Directory not found: {directory}")
+        return {"status": "error", "message": "Directory not found"}
+    
+    files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+    image_files = [f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif', '.tif', '.tiff'))]
+    
+    if not image_files:
+        print(f"✗ No image files found in {directory}")
+        return {"status": "error", "message": "No image files found"}
+    
+    print(f"\n{'='*100}")
+    print(f"BULK REGISTRATION - {len(image_files)} images found")
+    print(f"Directory: {directory}")
+    print(f"User: {current_user['username']}")
+    print(f"User ID: {current_user['user_id']}")
+    print(f"{'='*100}\n")
+    
+    stats = {
+        "total": len(image_files),
+        "registered": 0,
+        "duplicates": 0,
+        "errors": 0,
+        "results": []
+    }
+    
+    for idx, filename in enumerate(image_files, 1):
+        file_path = os.path.join(directory, filename)
+        print(f"[{idx}/{len(image_files)}] {filename}...")
+        
+        result = register_media(file_path)
+        
+        if result["status"] == "registered":
+            stats["registered"] += 1
+            print(f"        ✓ Registered")
+        elif result["status"] == "duplicate":
+            stats["duplicates"] += 1
+            print(f"        ☐ Already in database")
+        else:
+            stats["errors"] += 1
+            print(f"        ✗ Error: {result.get('message', 'Unknown error')}")
+        
+        stats["results"].append(result)
+    
+    # Summary
+    print(f"\n{'='*100}")
+    print(f"REGISTRATION SUMMARY")
+    print(f"  Total processed:   {stats['total']}")
+    print(f"  New registrations: {stats['registered']}")
+    print(f"  Already in DB:     {stats['duplicates']}")
+    print(f"  Errors:            {stats['errors']}")
+    print(f"{'='*100}\n")
+    return stats
+
+
+def main():
+    # Show auth menu first
+    if not auth_menu():
+        return
+    
+    # Main menu loop
+    while True:
+        print("\n" + "="*100)
+        print(f"MEDIA PROVENANCE SYSTEM - MAIN MENU (User: {current_user['username']})")
+        print("="*100)
+        print("1. Register all images from directory")
+        print("2. Check image (pgvector similarity search - O(log n))")
+        print("3. Check image (bruteforce Hamming distance - O(n))")
+        print("4. Run match_test()")
+        print("5. Regenerate NULL vectors in database")
+        print("6. Logout")
+        print("7. Exit")
+        
+        choice = input("Enter your choice (1-7): ").strip()
+        
+        if choice == "1":
+            directory = input("Enter directory path (default: /home/.../to_register): ").strip()
+            if not directory:
+                directory = "/home/flipman/Documents/Personal_Projects/AI_Policy_Hackathon/to_register"
+            register_all_from_directory(directory)
+        elif choice == "2":
+            find_closest_match()
+        elif choice == "3":
+            find_closest_match_bruteforce()
+        elif choice == "4":
+            match_test()
+        elif choice == "5":
+            regenerate_null_vectors()
+        elif choice == "6":
+            logout()
+            if auth_menu():
+                continue
+            else:
+                break
+        elif choice == "7":
+            print("Exiting...")
+            break
+        else:
+            print("Invalid choice. Please enter 1-7.")
+
+>>>>>>> Stashed changes
 
 
 def register_all_from_directory(directory: str) -> dict:
@@ -1018,5 +1145,9 @@ if __name__ == "__main__":	main()
 
 """“I’m building a cryptographic media provenance system 
 that uses hashing and digital signatures to verify the 
+<<<<<<< Updated upstream
+authenticity of digital media.” """
+>>>>>>> Stashed changes
+=======
 authenticity of digital media.” """
 >>>>>>> Stashed changes
