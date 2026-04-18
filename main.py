@@ -205,197 +205,6 @@ def logout():
     print("  ✓ Logged out")
 
 
-# Global variable to track current logged-in user
-current_user = None
-
-
-# ========== AUTHENTICATION FUNCTIONS ==========
-
-def hash_password(password: str) -> str:
-    """Hash password using bcrypt."""
-    salt = bcrypt.gensalt(rounds=12)
-    return bcrypt.hashpw(password.encode(), salt).decode()
-
-
-def verify_password(password: str, password_hash: str) -> bool:
-    """Verify password against bcrypt hash."""
-    return bcrypt.checkpw(password.encode(), password_hash.encode())
-
-
-def register_user(username: str, password: str, db_url: str = None) -> dict:
-    """
-    Register a new user in the system.
-    
-    Args:
-        username: Username for the account
-        password: Password (will be hashed with bcrypt)
-        db_url: PostgreSQL connection string
-    
-    Returns:
-        dict with status and user_id
-    """
-    if len(password) < 8:
-        return {"status": "error", "message": "Password must be at least 8 characters"}
-    
-    try:
-        conn = get_db_connection(db_url)
-        cursor = conn.cursor()
-        
-        # Check if username already exists
-        cursor.execute("SELECT user_id FROM users WHERE username = %s", (username,))
-        if cursor.fetchone():
-            cursor.close()
-            conn.close()
-            return {"status": "error", "message": f"Username '{username}' already exists"}
-        
-        # Generate unique user_id
-        user_id = f"user-{uuid.uuid4().hex[:12]}"
-        
-        # Hash password and insert
-        password_hash = hash_password(password)
-        cursor.execute(
-            """
-            INSERT INTO users (user_id, username, password_hash)
-            VALUES (%s, %s, %s)
-            """,
-            (user_id, username, password_hash)
-        )
-        
-        conn.commit()
-        cursor.close()
-        conn.close()
-        
-        print(f"  ✓ User '{username}' registered successfully (ID: {user_id})")
-        return {"status": "success", "user_id": user_id, "username": username}
-        
-    except Exception as e:
-        print(f"  ✗ Registration failed: {e}")
-        return {"status": "error", "message": str(e)}
-
-
-def login(username: str, password: str, db_url: str = None) -> dict:
-    """
-    Authenticate user and return user info.
-    
-    Args:
-        username: Username
-        password: Password (will be verified against hash)
-        db_url: PostgreSQL connection string
-    
-    Returns:
-        dict with status and user_id if successful
-    """
-    try:
-        conn = get_db_connection(db_url)
-        cursor = conn.cursor()
-        
-        # Find user
-        cursor.execute(
-            """
-            SELECT user_id, password_hash FROM users WHERE username = %s
-            """,
-            (username,)
-        )
-        
-        result = cursor.fetchone()
-        
-        if not result:
-            cursor.close()
-            conn.close()
-            return {"status": "error", "message": "Invalid username or password"}
-        
-        user_id, password_hash = result
-        
-        # Verify password
-        if not verify_password(password, password_hash):
-            cursor.close()
-            conn.close()
-            return {"status": "error", "message": "Invalid username or password"}
-        
-        # Update last login
-        cursor.execute(
-            "UPDATE users SET last_login = now() WHERE user_id = %s",
-            (user_id,)
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
-        
-        return {
-            "status": "success",
-            "user_id": user_id,
-            "username": username,
-            "message": f"Welcome, {username}!"
-        }
-        
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-
-def auth_menu():
-    """
-    Display authentication menu and handle login/registration.
-    Sets global current_user variable.
-    """
-    global current_user
-    
-    while True:
-        print("\n" + "="*100)
-        print("AUTHENTICATION - MEDIA PROVENANCE SYSTEM")
-        print("="*100)
-        print("\n1. Login")
-        print("2. Create new account")
-        print("3. Exit")
-        
-        choice = input("\nEnter your choice (1-3): ").strip()
-        
-        if choice == "1":
-            username = input("  Username: ").strip()
-            password = input("  Password: ").strip()
-            
-            result = login(username, password)
-            
-            if result["status"] == "success":
-                current_user = {
-                    "user_id": result["user_id"],
-                    "username": result["username"]
-                }
-                print(f"\n  ✓ {result['message']}")
-                return True
-            else:
-                print(f"\n  ✗ {result['message']}")
-        
-        elif choice == "2":
-            username = input("  Choose username: ").strip()
-            password = input("  Choose password (min 8 chars): ").strip()
-            password_confirm = input("  Confirm password: ").strip()
-            
-            if password != password_confirm:
-                print("  ✗ Passwords don't match")
-                continue
-            
-            result = register_user(username, password)
-            
-            if result["status"] == "success":
-                print(f"\n  ✓ Account created! Now log in with your credentials")
-            else:
-                print(f"  ✗ {result['message']}")
-        
-        elif choice == "3":
-            print("  Exiting...")
-            return False
-        
-        else:
-            print("  Invalid choice")
-
-
-def logout():
-    """Log out current user."""
-    global current_user
-    current_user = None
-    print("  ✓ Logged out")
-
-
 def create_manifest(creator_id: str, filename: str, file_path: str) -> dict:
     """
     Create a manifest for media registration.
@@ -463,12 +272,9 @@ def register_media(
     Register a file in the database with Ed25519 signature.
     Requires authenticated user. Checks for duplicates by SHA-256 before registering.
     Tracks which user uploaded the image.
-    Requires authenticated user. Checks for duplicates by SHA-256 before registering.
-    Tracks which user uploaded the image.
     
     Args:
         file_path: Path to media file to register
-        creator_id: Organization/team ID (optional, uses current user if not provided)
         creator_id: Organization/team ID (optional, uses current user if not provided)
         signing_key_hex: Ed25519 private key as hex string
         key_id: Public key identifier (e.g., "key-2026-01")
@@ -476,24 +282,7 @@ def register_media(
     
     Returns:
         dict with registration details or status if already exists
-        dict with registration details or status if already exists
     """
-    # Check authentication
-    if not current_user:
-        print("✗ You must be logged in to register media")
-        return {"status": "error", "message": "Not authenticated"}
-    
-    # Use current user info as creator_id
-    if creator_id is None:
-        creator_id = current_user["username"]
-    
-    # Validate file exists
-    if not os.path.isfile(file_path):
-        print(f"✗ File not found: {file_path}")
-        return {"status": "error", "message": "File not found"}
-    
-    filename = os.path.basename(file_path)
-    
     # Check authentication
     if not current_user:
         print("✗ You must be logged in to register media")
@@ -521,37 +310,8 @@ def register_media(
     
     # Compute SHA-256 to check for duplicates
     print(f"  Computing SHA-256 for {filename}...")
-    # Compute SHA-256 to check for duplicates
-    print(f"  Computing SHA-256 for {filename}...")
     manifest = create_manifest(creator_id, filename, file_path)
     sha256 = manifest["sha256"]
-    
-    # Check if already in database
-    try:
-        conn = get_db_connection(db_url)
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, created_at FROM manifests WHERE sha256 = %s", (sha256,))
-        existing = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        
-        if existing:
-            asset_id, created_at = existing
-            print(f"  ⊘ Already in database (ID: {asset_id}, registered: {created_at})")
-            return {
-                "status": "duplicate",
-                "message": f"Image already registered",
-                "asset_id": str(asset_id),
-                "sha256": sha256,
-                "created_at": str(created_at)
-            }
-    except Exception as e:
-        print(f"  ✗ Database error checking duplicates: {e}")
-        return {"status": "error", "message": str(e)}
-
-    
-    # Create manifest (already created above for SHA-256 check)
-    print(f"  Creating manifest for {filename}...")
     
     # Check if already in database
     try:
@@ -585,27 +345,14 @@ def register_media(
     
     # Sign manifest
     print(f"  Signing manifest with Ed25519...")
-    print(f"  Signing manifest with Ed25519...")
     signed = signing_key.sign(canonical_json.encode())
     signature_hex = signed.signature.hex()
     
     # Connect to database
     print(f"  Connecting to database...")
-    print(f"  Connecting to database...")
     conn = get_db_connection(db_url)
     
     try:
-        # Compute vectors for similarity search
-        print("Computing hash vectors for similarity search...")
-        phash_vector = hc.hash_to_vector(manifest["phash"][0])
-        dhash_vector = hc.hash_to_vector(manifest["dhash"][0])
-        ahash_vector = hc.hash_to_vector(manifest["ahash"][0])
-        
-        # Read image file as binary
-        print("Reading image file to store in database...")
-        with open(file_path, 'rb') as f:
-            image_data = f.read()
-        
         # Compute vectors for similarity search
         print("Computing hash vectors for similarity search...")
         phash_vector = hc.hash_to_vector(manifest["phash"][0])
@@ -624,11 +371,8 @@ def register_media(
             """
             INSERT INTO manifests (sha256, manifest_json, signature_hex, key_id, phash_vector, dhash_vector, ahash_vector, image_data)
             VALUES (%s, %s::jsonb, %s, %s, %s::vector, %s::vector, %s::vector, %s)
-            INSERT INTO manifests (sha256, manifest_json, signature_hex, key_id, phash_vector, dhash_vector, ahash_vector, image_data)
-            VALUES (%s, %s::jsonb, %s, %s, %s::vector, %s::vector, %s::vector, %s)
             RETURNING id, created_at
             """,
-            (sha256, json.dumps(manifest), signature_hex, key_id, phash_vector, dhash_vector, ahash_vector, image_data)
             (sha256, json.dumps(manifest), signature_hex, key_id, phash_vector, dhash_vector, ahash_vector, image_data)
         )
         
@@ -644,19 +388,9 @@ def register_media(
             (current_user["user_id"], sha256)
         )
         
-        # Track which user registered this image
-        cursor.execute(
-            """
-            INSERT INTO user_registrations (user_id, manifest_sha256)
-            VALUES (%s, %s)
-            """,
-            (current_user["user_id"], sha256)
-        )
-        
         conn.commit()
         cursor.close()
         
-        print(f"  ✓ Successfully registered: {filename} (ID: {asset_id})")
         print(f"  ✓ Successfully registered: {filename} (ID: {asset_id})")
         
         return {
@@ -676,13 +410,6 @@ def register_media(
     finally:
         conn.close()
 
-
-
-def main():
-    #match_test()
-    register_media(
-        file_path="/home/flipman/Documents/Personal_Projects/AI_Policy_Hackathon/test_images/antilope21.jpg",
-        creator_id="campaign-team-1")
 
 def find_closest_match(query_image_path: str = None, top_k: int = 10, db_url: str = None) -> list[dict]:
     """
@@ -967,7 +694,6 @@ def match_test():
     
     test_images_dir = "/home/flipman/Documents/Personal_Projects/AI_Policy_Hackathon/test_images"
     original_file = "aaog.jpeg"
-    original_file = "aaog.jpeg"
     original_path = os.path.join(test_images_dir, original_file)
     
     # Compute original hashes using new interface
@@ -1075,10 +801,6 @@ def regenerate_null_vectors(db_url: str = None) -> dict:
     """
     Regenerate vectors for records in database that have NULL vector columns.
     This is needed when existing records were stored before vector generation was implemented.
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     
     Args:
         db_url: PostgreSQL connection string (default: POSTGRES_URL from .env)
@@ -1279,121 +1001,10 @@ def main():
             print("Invalid choice. Please enter 1-7.")
 
 
-
-def register_all_from_directory(directory: str) -> dict:
-    """
-    Register all images from a directory.
-    Skips files that are already in the database (checks by SHA-256).
-    Uses current authenticated user as creator.
-    
-    Args:
-        directory: Path to directory containing images to register
-    
-    Returns:
-        dict with registration statistics
-    """
-    if not current_user:
-        print("✗ You must be logged in to register media")
-        return {"status": "error", "message": "Not authenticated"}
-    
-    if not os.path.isdir(directory):
-        print(f"✗ Directory not found: {directory}")
-        return {"status": "error", "message": "Directory not found"}
-    
-    files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
-    image_files = [f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif', '.tif', '.tiff'))]
-    
-    if not image_files:
-        print(f"✗ No image files found in {directory}")
-        return {"status": "error", "message": "No image files found"}
-    
-    print(f"\n{'='*100}")
-    print(f"BULK REGISTRATION - {len(image_files)} images found")
-    print(f"Directory: {directory}")
-    print(f"User: {current_user['username']}")
-    print(f"User ID: {current_user['user_id']}")
-    print(f"{'='*100}\n")
-    
-    stats = {
-        "total": len(image_files),
-        "registered": 0,
-        "duplicates": 0,
-        "errors": 0,
-        "results": []
-    }
-    
-    for idx, filename in enumerate(image_files, 1):
-        file_path = os.path.join(directory, filename)
-        print(f"[{idx}/{len(image_files)}] {filename}...")
-        
-        result = register_media(file_path)
-        
-        if result["status"] == "registered":
-            stats["registered"] += 1
-            print(f"        ✓ Registered")
-        elif result["status"] == "duplicate":
-            stats["duplicates"] += 1
-            print(f"        ☐ Already in database")
-        else:
-            stats["errors"] += 1
-            print(f"        ✗ Error: {result.get('message', 'Unknown error')}")
-        
-        stats["results"].append(result)
-    
-    # Summary
-    print(f"\n{'='*100}")
-    print(f"REGISTRATION SUMMARY")
-    print(f"  Total processed:   {stats['total']}")
-    print(f"  New registrations: {stats['registered']}")
-    print(f"  Already in DB:     {stats['duplicates']}")
-    print(f"  Errors:            {stats['errors']}")
-    print(f"{'='*100}\n")
-    return stats
-
-
-def main():
-    # Show auth menu first
-    if not auth_menu():
-        return
-    
-    # Main menu loop
-    while True:
-        print("\n" + "="*100)
-        print(f"MEDIA PROVENANCE SYSTEM - MAIN MENU (User: {current_user['username']})")
-        print("="*100)
-        print("1. Register all images from directory")
-        print("2. Check image (pgvector similarity search - O(log n))")
-        print("3. Check image (bruteforce Hamming distance - O(n))")
-        print("4. Run match_test()")
-        print("5. Regenerate NULL vectors in database")
-        print("6. Logout")
-        print("7. Exit")
-        
-        choice = input("Enter your choice (1-7): ").strip()
-        
-        if choice == "1":
-            directory = input("Enter directory path (default: /home/.../to_register): ").strip()
-            if not directory:
-                directory = "/home/flipman/Documents/Personal_Projects/AI_Policy_Hackathon/to_register"
-            register_all_from_directory(directory)
-        elif choice == "2":
-            find_closest_match()
-        elif choice == "3":
-            find_closest_match_bruteforce()
-        elif choice == "4":
-            match_test()
-        elif choice == "5":
-            regenerate_null_vectors()
-        elif choice == "6":
-            logout()
-            if auth_menu():
-                continue
-            else:
-                break
-        elif choice == "7":
-            print("Exiting...")
-            break
-        else:
-            print("Invalid choice. Please enter 1-7.")
-
 if __name__ == "__main__":	main()
+
+
+
+"""“I’m building a cryptographic media provenance system 
+that uses hashing and digital signatures to verify the 
+authenticity of digital media.” """
