@@ -1,3 +1,18 @@
+Scalability:
+-pgvector search (Ologn)
+-video and audio support
+
+
+
+
+
+
+
+
+
+
+
+
 Technical Design Overview:
 
 Goal:

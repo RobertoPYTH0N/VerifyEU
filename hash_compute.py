@@ -106,6 +106,38 @@ def hamming_distance(hash_hex_a: str, hash_hex_b: str) -> int:
 	a = imagehash.hex_to_hash(hash_hex_a)
 	b = imagehash.hex_to_hash(hash_hex_b)
 	return int(a - b)
+
+def hash_to_vector(hash_hex: str) -> list[float]:
+	"""
+	Convert a hex hash string to a 64-dimensional vector for pgvector.
+	
+	Each hex character (4 bits) is converted to a float value.
+	Example: "e79249c66c631ecc..." → [0.9375, 0.5625, 1.0, 0.375, ...]
+	
+	Args:
+		hash_hex: Hex string representation of hash
+	
+	Returns:
+		list of 64 float values (0.0 to 1.0)
+	"""
+	# Remove any non-hex characters
+	hash_hex = ''.join(c for c in hash_hex if c in '0123456789abcdef')
+	
+	# Convert each hex char to float (0-15 normalized to 0.0-1.0)
+	vector = []
+	for char in hash_hex:
+		value = int(char, 16) / 15.0  # Normalize 0-15 to 0.0-1.0
+		vector.append(value)
+	
+	# Ensure we have exactly 64 dimensions
+	if len(vector) < 64:
+		# Pad with zeros if necessary
+		vector.extend([0.0] * (64 - len(vector)))
+	elif len(vector) > 64:
+		# Truncate if necessary
+		vector = vector[:64]
+	
+	return vector
      
 def compute_pdahash_norm(path: str, target_size: int = 256, hash_size: int = 8) -> tuple[str, str, str]:
     """
