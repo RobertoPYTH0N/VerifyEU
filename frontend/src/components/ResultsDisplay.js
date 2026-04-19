@@ -81,19 +81,37 @@ function ResultsDisplay({ result, onContinue }) {
           <div className="top-match-section">
             <h2>Top Match Found</h2>
 
-            {topMatch.image_base64 && (
-              <div className="match-image-container">
-                <img
-                  src={`data:image/jpeg;base64,${topMatch.image_base64}`}
-                  alt={topMatch.filename}
-                  className="match-image"
-                  onError={(e) => {
-                    e.target.src =
-                      'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23ddd" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" font-size="14" fill="%23999" text-anchor="middle" dy=".3em"%3EImage unavailable%3C/text%3E%3C/svg%3E';
-                  }}
-                />
+            <div className="image-comparison">
+              <div className="query-image-container">
+                <h3>Your Image</h3>
+                {result.queryImageBase64 && (
+                  <img
+                    src={`data:image/jpeg;base64,${result.queryImageBase64}`}
+                    alt="Query"
+                    className="comparison-image"
+                    onError={(e) => {
+                      e.target.src =
+                        'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23ddd" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" font-size="14" fill="%23999" text-anchor="middle" dy=".3em"%3EImage unavailable%3C/text%3E%3C/svg%3E';
+                    }}
+                  />
+                )}
               </div>
-            )}
+
+              <div className="match-image-container">
+                <h3>Best Match</h3>
+                {topMatch.image_base64 && (
+                  <img
+                    src={`data:image/jpeg;base64,${topMatch.image_base64}`}
+                    alt="Match"
+                    className="comparison-image"
+                    onError={(e) => {
+                      e.target.src =
+                        'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23ddd" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" font-size="14" fill="%23999" text-anchor="middle" dy=".3em"%3EImage unavailable%3C/text%3E%3C/svg%3E';
+                    }}
+                  />
+                )}
+              </div>
+            </div>
 
             <div className="confidence-badge" style={{ borderLeft: `4px solid ${getTierColor(topMatch.confidence_tier)}` }}>
               <div className="confidence-tier" style={{ color: getTierColor(topMatch.confidence_tier) }}>
@@ -107,10 +125,6 @@ function ResultsDisplay({ result, onContinue }) {
 
             <div className="match-details">
               <div className="detail-row">
-                <label>Filename:</label>
-                <span>{topMatch.filename}</span>
-              </div>
-              <div className="detail-row">
                 <label>Creator ID:</label>
                 <span>{topMatch.creator_id}</span>
               </div>
@@ -122,63 +136,6 @@ function ResultsDisplay({ result, onContinue }) {
                     : 'Unknown'}
                 </span>
               </div>
-
-              <div className="hash-distances">
-                <h4>Hash Distances</h4>
-                <div className="hash-row">
-                  <span className="hash-label">pHash:</span>
-                  <div className="distance-bar">
-                    <div
-                      className="distance-fill"
-                      style={{
-                        width: `${Math.min(topMatch.phash_distance * 5, 100)}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <span className="distance-value">{topMatch.phash_distance}</span>
-                </div>
-                <div className="hash-row">
-                  <span className="hash-label">dHash:</span>
-                  <div className="distance-bar">
-                    <div
-                      className="distance-fill"
-                      style={{
-                        width: `${Math.min(topMatch.dhash_distance * 5, 100)}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <span className="distance-value">{topMatch.dhash_distance}</span>
-                </div>
-                <div className="hash-row">
-                  <span className="hash-label">aHash:</span>
-                  <div className="distance-bar">
-                    <div
-                      className="distance-fill"
-                      style={{
-                        width: `${Math.min(topMatch.ahash_distance * 5, 100)}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <span className="distance-value">{topMatch.ahash_distance}</span>
-                </div>
-                <div className="hash-row">
-                  <span className="hash-label">Average:</span>
-                  <div className="distance-bar">
-                    <div
-                      className="distance-fill"
-                      style={{
-                        width: `${Math.min(topMatch.avg_distance * 5, 100)}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <span className="distance-value">{topMatch.avg_distance.toFixed(2)}</span>
-                </div>
-              </div>
-
-              <details className="sha256-details">
-                <summary>SHA-256 Hash</summary>
-                <span className="mono hash">{topMatch.sha256}</span>
-              </details>
 
               <div className="action-buttons">
                 <button className="report-button" onClick={() => alert('Report submitted')}>
@@ -204,7 +161,6 @@ function ResultsDisplay({ result, onContinue }) {
                     >
                       <div className="match-rank">#{index + 1}</div>
                       <div className="match-summary">
-                        <div className="filename-summary">{match.filename}</div>
                         <div className="score-summary">
                           {match.similarity_score.toFixed(1)}%
                         </div>
@@ -242,18 +198,6 @@ function ResultsDisplay({ result, onContinue }) {
                           >
                             {getTierLabel(match.confidence_tier)}
                           </span>
-                        </div>
-                        <div className="detail-row">
-                          <label>pHash Distance:</label>
-                          <span>{match.phash_distance}</span>
-                        </div>
-                        <div className="detail-row">
-                          <label>dHash Distance:</label>
-                          <span>{match.dhash_distance}</span>
-                        </div>
-                        <div className="detail-row">
-                          <label>aHash Distance:</label>
-                          <span>{match.ahash_distance}</span>
                         </div>
                       </div>
                     )}

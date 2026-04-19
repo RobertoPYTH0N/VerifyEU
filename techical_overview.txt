@@ -1,3 +1,7 @@
+PRESENTATION:
+
+note how fast lookup is
+
 Scalability:
 -pgvector search (Ologn)
 -video and audio support

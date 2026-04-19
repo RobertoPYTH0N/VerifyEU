@@ -90,7 +90,7 @@ form {
 }
 
 .form-group input:disabled {
-  background: #eef5ee;
+  background: #E0E8F5;
   color: #999;
 }
 
@@ -117,35 +117,11 @@ form {
 }
 
 .submit-button:hover:not(:disabled) {
-  background: #165934;
+  background: #2E5FA3;
   box-shadow: 0 4px 12px rgba(45, 80, 22, 0.3);
 }
 
 .submit-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.footer {
-  margin-top: 1.5rem;
-  text-align: center;
-}
-
-.toggle-mode {
-  background: none;
-  border: none;
-  color: #1C4D8D;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: color 0.3s;
-  text-decoration: underline;
-}
-
-.toggle-mode:hover:not(:disabled) {
-  color: #165934;
-}
-
-.toggle-mode:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

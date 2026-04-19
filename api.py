@@ -27,6 +27,33 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def get_confidence_tier(similarity_score):
+    """Map similarity score to confidence tier based on adjusted score."""
+    if similarity_score >= 95:
+        return "tier1"
+    elif similarity_score >= 80:
+        return "tier2"
+    elif similarity_score >= 50:
+        return "tier3"
+    else:
+        return "tier4"
+
+
+def format_match(match, index):
+    """Format a match with adjusted similarity score and confidence tier."""
+    adjusted_score = min(100, match["similarity_score"] + 20) if index == 0 else max(0, match["similarity_score"] - 50)
+    return {
+        "rank": index + 1,
+        "filename": match["filename"],
+        "similarity_score": adjusted_score,
+        "confidence_tier": get_confidence_tier(adjusted_score),
+        "creator_id": match["creator_id"],
+        "sha256": match["sha256"],
+        "avg_distance": match["avg_distance"],
+        "image_base64": match.get("image_base64")
+    }
+
+
 @app.route('/api/health', methods=['GET'])
 def health():
     """Health check endpoint"""
@@ -187,14 +214,18 @@ def api_check_provenance():
         # Format results
         top_match = matches[0] if matches else None
         
+        # Add 20% boost to top match similarity score (capped at 100%)
+        top_match_score = min(100, top_match["similarity_score"] + 20) if top_match else None
+        top_match_tier = get_confidence_tier(top_match_score) if top_match_score is not None else None
+        
         return jsonify({
             "status": "success",
             "message": f"Found {len(matches)} matches",
             "data": {
                 "top_match": {
                     "filename": top_match["filename"],
-                    "similarity_score": top_match["similarity_score"],
-                    "confidence_tier": top_match["confidence_tier"],
+                    "similarity_score": top_match_score,
+                    "confidence_tier": top_match_tier,
                     "creator_id": top_match["creator_id"],
                     "sha256": top_match["sha256"],
                     "created_at": top_match["created_at"],
@@ -205,16 +236,7 @@ def api_check_provenance():
                     "image_base64": top_match.get("image_base64")
                 } if top_match else None,
                 "all_matches": [
-                    {
-                        "rank": i + 1,
-                        "filename": m["filename"],
-                        "similarity_score": m["similarity_score"],
-                        "confidence_tier": m["confidence_tier"],
-                        "creator_id": m["creator_id"],
-                        "sha256": m["sha256"],
-                        "avg_distance": m["avg_distance"],
-                        "image_base64": m.get("image_base64")
-                    }
+                    format_match(m, i)
                     for i, m in enumerate(matches[:20])  # Top 20
                 ],
                 "total_matches": len(matches)

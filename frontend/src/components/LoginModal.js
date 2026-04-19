@@ -147,24 +147,6 @@ function LoginModal({ onSuccess, onCancel, isRegistering }) {
             {loading ? 'Processing...' : (mode === 'login' ? 'Login' : 'Register')}
           </button>
         </form>
-
-        <div className="footer">
-          <button
-            type="button"
-            className="toggle-mode"
-            onClick={() => {
-              setMode(mode === 'login' ? 'register' : 'login');
-              setError('');
-              setPassword('');
-              setConfirmPassword('');
-            }}
-            disabled={loading}
-          >
-            {mode === 'login'
-              ? "Don't have an account? Register"
-              : 'Already have an account? Login'}
-          </button>
-        </div>
       </div>
     </div>
   );

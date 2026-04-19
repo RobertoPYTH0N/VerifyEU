@@ -81,6 +81,7 @@ function FileUploader({ type, onSuccess, user, registrationResults = [], onAllCo
     }
 
     setLoading(false);
+    setCurrentFileIndex(0);
   };
 
   const uploadFile = async (file) => {
@@ -101,7 +102,20 @@ function FileUploader({ type, onSuccess, user, registrationResults = [], onAllCo
       const data = await response.json();
 
       if (response.ok) {
-        onSuccess(data);
+        // For check type, also read the file as base64 to display query image
+        if (type === 'check') {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const base64 = e.target.result.split(',')[1];
+            onSuccess({
+              ...data,
+              queryImageBase64: base64,
+            });
+          };
+          reader.readAsDataURL(file);
+        } else {
+          onSuccess(data);
+        }
       } else {
         setError((prev) => prev + `${file.name}: ${data.message || 'Failed'}\n`);
       }
@@ -186,7 +200,7 @@ function FileUploader({ type, onSuccess, user, registrationResults = [], onAllCo
                   {type === 'register' ? `Registering ${currentFileIndex}/${files.length}...` : 'Checking...'}
                 </>
               ) : (
-                type === 'register' ? 'Register All' : 'Check Provenance'
+                type === 'register' ? 'Register' : 'Check Provenance'
               )}
             </button>
           </div>

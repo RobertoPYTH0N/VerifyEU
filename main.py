@@ -1002,9 +1002,3 @@ def main():
 
 
 if __name__ == "__main__":	main()
-
-
-
-"""“I’m building a cryptographic media provenance system 
-that uses hashing and digital signatures to verify the 
-authenticity of digital media.” """

@@ -53,6 +53,7 @@ function App() {
       type: 'check',
       data: checkResult.data,
       message: checkResult.message,
+      queryImageBase64: checkResult.queryImageBase64,
     });
   };
 
@@ -63,7 +64,7 @@ function App() {
       {currentView === 'home' && (
         <div className="home-container">
           <div className="hero">
-            <h1>Media Provenance System</h1>
+            <h1>VerifyEU</h1>
             <p>Verify the authenticity of digital media with cryptographic hashing and digital signatures</p>
           </div>
 

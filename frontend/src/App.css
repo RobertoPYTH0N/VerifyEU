@@ -51,7 +51,7 @@ body {
 }
 
 .logout-button {
-  background: #165934;
+  background: #2E5FA3;
   color: #000;
   border: none;
   padding: 0.5rem 1rem;
@@ -62,7 +62,7 @@ body {
 }
 
 .logout-button:hover {
-  background: #0f3d25;
+  background: #1A3D5C;
 }
 
 /* Home Container */
@@ -131,7 +131,7 @@ body {
 }
 
 .check-button {
-  background: #165934;
+  background: #2E5FA3;
   color: #000;
 }
 
@@ -177,7 +177,7 @@ body {
 }
 
 .back-button:hover {
-  background: #165934;
+  background: #2E5FA3;
 }
 
 .upload-card {
@@ -185,7 +185,7 @@ body {
   border-radius: 12px;
   padding: 2rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  max-width: 600px;
+  max-width: 1000px;
   width: 100%;
   border: 2px solid #e0f0e0;
 }
