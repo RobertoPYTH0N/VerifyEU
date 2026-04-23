@@ -204,58 +204,18 @@ The manifest is canonicalized and signed with Ed25519, creating an immutable pro
 
 ## Similarity Search
 
-### Confidence Tiers
+### Confidence Tiers (Outdated)
 - **Tier 1**: avg_distance < 0.1 (Very high similarity)
 - **Tier 2**: avg_distance < 0.2 (High similarity)  
 - **Tier 3**: avg_distance < 0.3 (Moderate similarity)
 - **Tier 4**: avg_distance ≥ 0.3 (Low similarity)
 
-### How It Works
+### How It Works (Outdated)
 1. Compute perceptual hashes for query image
 2. Convert hashes to 64-dimensional vectors
 3. Query pgvector using cosine distance
 4. Average distances across pHash, dHash, aHash
 5. Return results sorted by similarity
-
-## Deployment
-
-### Frontend Options
-
-**Azure Static Web Apps** (Recommended)
-- Free tier, auto-deploys from GitHub
-- Connect repository, enable GitHub Actions
-- Configure API endpoint environment variable
-
-**Vercel** (Easiest for React)
-- Connect GitHub repo, auto-deploys on push
-- Simple configuration needed
-- Free tier available
-
-**Traditional VPS**
-- Deploy to DigitalOcean, Linode, or AWS
-- Use nginx to serve static build files
-
-### Backend Options
-
-**Azure App Service**
-- Deploy Python Flask app
-- Configure PostgreSQL connection
-- Set environment variables
-
-**Railway / Render**
-- Simple Python deployment
-- Automatic database provisioning available
-- Built-in PostgreSQL hosting
-
-### Database
-
-**Azure Database for PostgreSQL**
-- Managed service with pgvector support
-- Automatic backups and scaling
-
-**Railway / Render PostgreSQL**
-- Fully managed with connection strings
-- Suitable for development and production
 
 ## Project Structure
 
@@ -301,22 +261,5 @@ from main import find_closest_match_bruteforce
 # This includes latency and request metrics
 matches = find_closest_match_bruteforce('query_image.jpg')
 ```
-
-## License
-
-Specify your license here (MIT, Apache 2.0, etc.)
-
-## Contributing
-
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
-
-## Support
-
-For issues or questions, open a GitHub issue or contact the maintainers.
-
----
 
 **Project Status**: Active Development (AI Policy Hackathon 2026)
