@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # VerifyEU
 
 A web application for registering and verifying the authenticity of digital images using cryptographic hashing, image fingerprinting, and Ed25519 digital signatures.
@@ -263,3 +264,6 @@ matches = find_closest_match_bruteforce('query_image.jpg')
 ```
 
 **Project Status**: Active Development (AI Policy Hackathon 2026)
+=======
+# VerifyEU
+>>>>>>> ee7ec84b317c290a72f9d01ed31e004b31cde1f0
